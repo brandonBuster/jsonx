@@ -223,12 +223,12 @@ export function getReactClassComponent(reactComponent = {}, options = {}) {
 
 export function DynamicComponent(props={}) {
   const { useCache = true, cacheTimeout = 60 * 60 * 5, loadingJSONX= { component:'div', children:'...Loading', },
-  loadingErrorJSONX= { component:'div', children:[{component:'span',children:'Error: '},{ component:'span',  resourceprops:{_children:['error','message']}, }], }, cacheTimeoutFunction = () => { }, jsonx, transformFunction = data => data, fetchURL, fetchOptions, fetchFunction, } = props;
+  loadingErrorJSONX= { component:'div', children:[{component:'span',children:'Error: '},{ component:'span',  resourceprops:{_children:['error','message']}, }], }, cacheTimeoutFunction = () => { }, jsonx, transformFunction = data => data, fetchURL, fetchOptions, } = props;
   const context = this || {};
   const [ state, setState ] = useState({ hasLoaded: false, hasError: false, resources: {}, error:undefined, });
   const transformer = useMemo(()=>getFunctionFromEval(transformFunction), [ transformFunction ]);
   const timeoutFunction = useMemo(()=>getFunctionFromEval(cacheTimeoutFunction), [ cacheTimeoutFunction ]);
-  const renderJSONX = useMemo(()=>getReactElementFromJSONX.bind(context), [ context ]);
+  const renderJSONX = useMemo(()=>getReactElementFromJSONX.bind({context}), [ context ]);
   const loadingComponent = useMemo(()=>renderJSONX(loadingJSONX), [ loadingJSONX ]);
   const loadingError = useMemo(()=>renderJSONX(loadingErrorJSONX,{error:state.error}), [ loadingErrorJSONX, state.error ]);
 
@@ -239,23 +239,19 @@ export function DynamicComponent(props={}) {
         if (useCache && cache.get(fetchURL)) {
           transformedData = cache.get(fetchURL);
         } else {
-          let fetchedData;
-          if (fetchFunction) {
-            fetchedData = await fetchFunction(fetchURL, fetchOptions);
-          } else fetchedData = await fetchJSON(fetchURL, fetchOptions);
+          const fetchedData = await fetchJSON(fetchURL, fetchOptions);
           transformedData = await transformer(fetchedData);
           if (useCache) cache.put(fetchURL, transformedData, cacheTimeout,timeoutFunction);
         }
-        setState(prevState=>Object.assign({},prevState,{ hasLoaded: true, hasError: false, resources: { DynamicComponentData: transformedData, }, }));
+        setState(prevState=>Object.assign({},prevState,{ hasLoaded: true, hasError: false, resources: transformedData, }));
       } catch (e) {
         if(context.debug) console.warn(e);
         setState({ hasError: true, error:e, });
       }
     }
-    if(fetchURL) getData();
+    getData();
   }, [ fetchURL, fetchOptions ]);
-  if (!fetchURL) return null;
-  else if (state.hasError) {
+  if (state.hasError) {
     return loadingError;
   } else if (state.hasLoaded === false) {
     return loadingComponent;
@@ -309,7 +305,6 @@ export function getReactFunctionComponent(reactComponent = {}, functionBody = ''
       };
     }));
   }
-  if (typeof options === 'undefined' || typeof options.bind === 'undefined') options.bind = true;
   const { resources = {}, args=[], } = options;
 
   const props = reactComponent.props;
@@ -319,8 +314,8 @@ export function getReactFunctionComponent(reactComponent = {}, functionBody = ''
     const self = this;
     return function ${options.name || 'Anonymous'}(props){
       ${functionBody}
-      if(typeof exposeProps==='undefined' || exposeProps){
-        reactComponent.props = Object.assign({},props,typeof exposeProps==='undefined'?{}:exposeProps);
+      if(typeof exposeProps!=='undefined'){
+        reactComponent.props = Object.assign({},props,exposeProps);
         // reactComponent.__functionargs = Object.keys(exposeProps);
       } else{
         reactComponent.props =  props;

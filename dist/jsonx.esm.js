@@ -1,10 +1,10 @@
-import React, { Fragment, Suspense, lazy, useState, useMemo, useEffect, createContext, useContext, useReducer, useCallback, useRef, useImperativeHandle, useLayoutEffect, useDebugValue } from 'react';
-import ReactDOM from 'react-dom';
-import ReactDOMServer from 'react-dom/server';
-import ReactDOMElements from 'react-dom-factories';
 import UAParser from 'ua-parser-js';
+import React, { useState, useEffect, useContext, useReducer, useCallback, useMemo, useRef, useImperativeHandle, useLayoutEffect, useDebugValue, Fragment, Suspense, lazy, createContext } from 'react';
+import ReactDOMElements from 'react-dom-factories';
 import createReactClass from 'create-react-class';
 import path from 'path';
+import ReactDOM from 'react-dom';
+import ReactDOMServer from 'react-dom/server';
 
 function setState(store, newState, afterUpdateCallback) {
   const listenersLength = store.listeners.length;
@@ -16,12 +16,11 @@ function setState(store, newState, afterUpdateCallback) {
   });
   afterUpdateCallback && afterUpdateCallback();
 }
-
-function useCustom(store, React, mapState, mapActions) {
-  const [, originalHook] = React.useState(Object.create(null));
+function useCustom(store, React$$1, mapState, mapActions) {
+  const [, originalHook] = React$$1.useState(Object.create(null));
   const state = mapState ? mapState(store.state) : store.state;
-  const actions = React.useMemo(() => mapActions ? mapActions(store.actions) : store.actions, [mapActions, store.actions]);
-  React.useEffect(() => {
+  const actions = React$$1.useMemo(() => mapActions ? mapActions(store.actions) : store.actions, [mapActions, store.actions]);
+  React$$1.useEffect(() => {
     const newListener = {
       oldState: {}
     };
@@ -42,7 +41,6 @@ function useCustom(store, React, mapState, mapActions) {
 
   return [state, actions];
 }
-
 function associateActions(store, actions) {
   const associatedActions = {};
   Object.keys(actions).forEach(key => {
@@ -56,8 +54,7 @@ function associateActions(store, actions) {
   });
   return associatedActions;
 }
-
-const useStore = (React, initialState, actions, initializer) => {
+const useStore = (React$$1, initialState, actions, initializer) => {
   const store = {
     state: initialState,
     listeners: []
@@ -65,7 +62,7 @@ const useStore = (React, initialState, actions, initializer) => {
   store.setState = setState.bind(null, store);
   store.actions = associateActions(store, actions);
   if (initializer) initializer(store);
-  return useCustom.bind(null, store, React);
+  return useCustom.bind(null, store, React$$1);
 };
 
 function Cache() {
@@ -717,9 +714,9 @@ function getSimplifiedJSONX(jsonx = {}) {
  * @return {Object} - returns fetched JSON data
  */
 
-async function fetchJSON(path = '', options = {}) {
+async function fetchJSON(path$$1 = '', options = {}) {
   try {
-    const response = await fetch(path, options);
+    const response = await fetch(path$$1, options);
     return await response.json();
   } catch (e) {
     throw e;
@@ -1012,8 +1009,7 @@ function DynamicComponent(props = {}) {
     jsonx,
     transformFunction = data => data,
     fetchURL,
-    fetchOptions,
-    fetchFunction
+    fetchOptions
   } = props;
   const context = this || {};
   const [state, setState] = useState({
@@ -1024,7 +1020,9 @@ function DynamicComponent(props = {}) {
   });
   const transformer = useMemo(() => getFunctionFromEval(transformFunction), [transformFunction]);
   const timeoutFunction = useMemo(() => getFunctionFromEval(cacheTimeoutFunction), [cacheTimeoutFunction]);
-  const renderJSONX = useMemo(() => getReactElementFromJSONX.bind(context), [context]);
+  const renderJSONX = useMemo(() => getReactElementFromJSONX.bind({
+    context
+  }), [context]);
   const loadingComponent = useMemo(() => renderJSONX(loadingJSONX), [loadingJSONX]);
   const loadingError = useMemo(() => renderJSONX(loadingErrorJSONX, {
     error: state.error
@@ -1037,12 +1035,7 @@ function DynamicComponent(props = {}) {
         if (useCache && cache.get(fetchURL)) {
           transformedData = cache.get(fetchURL);
         } else {
-          let fetchedData;
-
-          if (fetchFunction) {
-            fetchedData = await fetchFunction(fetchURL, fetchOptions);
-          } else fetchedData = await fetchJSON(fetchURL, fetchOptions);
-
+          const fetchedData = await fetchJSON(fetchURL, fetchOptions);
           transformedData = await transformer(fetchedData);
           if (useCache) cache.put(fetchURL, transformedData, cacheTimeout, timeoutFunction);
         }
@@ -1050,9 +1043,7 @@ function DynamicComponent(props = {}) {
         setState(prevState => Object.assign({}, prevState, {
           hasLoaded: true,
           hasError: false,
-          resources: {
-            DynamicComponentData: transformedData
-          }
+          resources: transformedData
         }));
       } catch (e) {
         if (context.debug) console.warn(e);
@@ -1063,9 +1054,10 @@ function DynamicComponent(props = {}) {
       }
     }
 
-    if (fetchURL) getData();
+    getData();
   }, [fetchURL, fetchOptions]);
-  if (!fetchURL) return null;else if (state.hasError) {
+
+  if (state.hasError) {
     return loadingError;
   } else if (state.hasLoaded === false) {
     return loadingComponent;
@@ -1122,7 +1114,6 @@ function getReactFunctionComponent(reactComponent = {}, functionBody = '', optio
     }));
   }
 
-  if (typeof options === 'undefined' || typeof options.bind === 'undefined') options.bind = true;
   const {
     resources = {},
     args = []
@@ -1134,8 +1125,8 @@ function getReactFunctionComponent(reactComponent = {}, functionBody = '', optio
     const self = this;
     return function ${options.name || 'Anonymous'}(props){
       ${functionBody}
-      if(typeof exposeProps==='undefined' || exposeProps){
-        reactComponent.props = Object.assign({},props,typeof exposeProps==='undefined'?{}:exposeProps);
+      if(typeof exposeProps!=='undefined'){
+        reactComponent.props = Object.assign({},props,exposeProps);
         // reactComponent.__functionargs = Object.keys(exposeProps);
       } else{
         reactComponent.props =  props;
@@ -1322,8 +1313,8 @@ function getChildrenComponents(options = {}) {
 function boundArgsReducer(jsonx = {}) {
   return (args, arg) => {
     let val;
-    if (this && this.state && typeof this.state[arg] !== 'undefined') val = this.state[arg];else if (this && this.props && typeof this.props[arg] !== 'undefined') val = this.props[arg];else if (jsonx.props && typeof jsonx.props[arg] !== 'undefined') val = jsonx.props[arg];
-    if (typeof val !== 'undefined') args.push(val);
+    if (this && this.state && typeof this.state[arg] !== undefined) val = this.state[arg];else if (this && this.props && typeof this.props[arg] !== undefined) val = this.props[arg];else if (jsonx.props && typeof jsonx.props[arg] !== undefined) val = jsonx.props[arg];
+    if (typeof val !== undefined) args.push(val);
     return args.filter(a => typeof a !== 'undefined');
   };
 }
@@ -1457,47 +1448,6 @@ function getComponentProps(options = {}) {
     cprops[cpropName] = componentVal;
     return cprops;
   }, {});
-}
-function getReactComponents(options) {
-  const {
-    jsonx,
-    resources
-  } = options;
-  const functionComponents = !jsonx.__dangerouslyInsertFunctionComponents ? {} : Object.keys(jsonx.__dangerouslyInsertFunctionComponents).reduce((cprops, cpropName) => {
-    let componentVal;
-
-    try {
-      const args = jsonx.__dangerouslyInsertFunctionComponents[cpropName];
-      args.options = Object.assign({}, args.options, {
-        resources
-      }); // eslint-disable-next-line
-
-      componentVal = getReactFunctionComponent.call(this, args.reactComponent, args.functionBody, args.options);
-    } catch (e) {
-      if (this.debug || jsonx.debug) componentVal = e;
-    }
-
-    cprops[cpropName] = cpropName === '_children' ? [componentVal] : componentVal;
-    return cprops;
-  }, {});
-  const classComponents = !jsonx.__dangerouslyInsertClassComponents ? {} : Object.keys(jsonx.__dangerouslyInsertClassComponents).reduce((cprops, cpropName) => {
-    let componentVal;
-
-    try {
-      const args = jsonx.__dangerouslyInsertClassComponents[cpropName];
-      args.options = Object.assign({}, args.options, {
-        resources
-      }); // eslint-disable-next-line
-
-      componentVal = getReactFunctionComponent.call(this, args.reactComponent, args.options);
-    } catch (e) {
-      if (this.debug || jsonx.debug) componentVal = e;
-    }
-
-    cprops[cpropName] = cpropName === '_children' ? [componentVal] : componentVal;
-    return cprops;
-  }, {});
-  return Object.assign({}, functionComponents, classComponents);
 }
 /**
  * Resolves jsonx.__dangerouslyInsertReactComponents into an object that turns each value into a React components. This is typically used in a library like Recharts where you pass custom components for chart ticks or plot points. 
@@ -1756,7 +1706,7 @@ function getComputedProps(options = {}) {
   const {
     jsonx = {},
     resources = {},
-    renderIndex,
+    renderIndex: renderIndex$$1,
     logError = console.error,
     useReduxState = true,
     ignoreReduxPropsInComponentLibraries = true,
@@ -1811,16 +1761,12 @@ function getComputedProps(options = {}) {
       jsonx,
       debug
     }) : {};
-    const insertedComputedComponents = jsonx.__dangerouslyInsertFunctionComponents || jsonx.__dangerouslyInsertClassComponents ? getReactComponents.call(this, {
-      jsonx,
-      debug
-    }) : {};
     const evalAllProps = jsonx.__dangerouslyEvalAllProps ? getEvalProps.call(this, {
       jsonx
     }) : {};
     const allProps = Object.assign({}, this.disableRenderIndexKey || disableRenderIndexKey ? {} : {
-      key: renderIndex
-    }, jsonx.props, thisprops, thisstate, resourceprops, asyncprops, windowprops, evalProps, insertedComponents, insertedReactComponents, insertedComputedComponents);
+      key: renderIndex$$1
+    }, jsonx.props, thisprops, thisstate, resourceprops, asyncprops, windowprops, evalProps, insertedComponents, insertedReactComponents);
     const computedProps = Object.assign({}, allProps, jsonx.__functionProps ? getFunctionProps.call(this, {
       allProps,
       jsonx
@@ -1851,7 +1797,6 @@ var jsonxProps = /*#__PURE__*/Object.freeze({
   boundArgsReducer: boundArgsReducer,
   getEvalProps: getEvalProps,
   getComponentProps: getComponentProps,
-  getReactComponents: getReactComponents,
   getReactComponentProps: getReactComponentProps,
   getFunctionFromProps: getFunctionFromProps,
   getFunctionProps: getFunctionProps,
@@ -1940,7 +1885,7 @@ function getChildrenProps(options = {}) {
   const {
     jsonx = {},
     childjsonx,
-    renderIndex
+    renderIndex: renderIndex$$1
   } = options;
   const props = options.props || jsonx.props || {};
   return jsonx.passprops && typeof childjsonx === 'object' ? Object.assign({}, childjsonx, {
@@ -1948,7 +1893,7 @@ function getChildrenProps(options = {}) {
     childjsonx.asyncprops && childjsonx.asyncprops.style || childjsonx.windowprops && childjsonx.windowprops.style ? {} : {
       style: {}
     }, childjsonx.props, {
-      key: renderIndex + Math.random()
+      key: renderIndex$$1 + Math.random()
     })
   }) : childjsonx;
 }
@@ -1967,7 +1912,7 @@ function getJSONXChildren(options = {}) {
   const {
     jsonx,
     resources,
-    renderIndex,
+    renderIndex: renderIndex$$1,
     logError = console.error
   } = options;
 
@@ -1983,7 +1928,7 @@ function getJSONXChildren(options = {}) {
       jsonx,
       childjsonx,
       props,
-      renderIndex
+      renderIndex: renderIndex$$1
     }), resources)) : jsonx.children;
   } catch (e) {
     logError(e);
@@ -2006,7 +1951,7 @@ var jsonxChildren = /*#__PURE__*/Object.freeze({
  * @param {*} callback 
  */
 
-function __express(filePath, options, callback) {
+function __express$$1(filePath, options, callback) {
   try {
     const jsonxModule = options.__jsonx; //|| require(filePath);
 
@@ -2306,4 +2251,4 @@ const _jsonxProps = jsonxProps;
 const _jsonxUtils = jsonxUtils;
 
 export default getReactElementFromJSONX;
-export { __express, __getReact, __getReactDOM, __getUseGlobalHook, _jsonxChildren, _jsonxComponents, _jsonxProps, _jsonxUtils, compile, getReactElement, getReactElementFromJSON, getReactElementFromJSONX, getRenderedJSON, jsonToJSX, jsonxHTMLString, jsonxRender, outputHTML, outputJSON, outputJSX, __express as renderFile, renderIndex };
+export { renderIndex, jsonxRender, outputHTML, getReactElementFromJSONX, getRenderedJSON, getReactElement, getReactElementFromJSON, compile, outputJSX, outputJSON, jsonxHTMLString, jsonToJSX, __getReact, __getReactDOM, __getUseGlobalHook, _jsonxChildren, _jsonxComponents, _jsonxProps, _jsonxUtils, __express$$1 as __express, __express$$1 as renderFile };
